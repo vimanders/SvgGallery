@@ -2,6 +2,7 @@
 
 #include <QCheckBox>
 #include <QColorDialog>
+#include <QCoreApplication>
 #include <QDebug>
 #include <QDir>
 #include <QFileDialog>
@@ -11,6 +12,7 @@
 #include <QPushButton>
 #include <QRegularExpression>
 #include <QScrollArea>
+#include <QScrollBar>
 #include <QVBoxLayout>
 
 SvgGallery::SvgGallery(QWidget *parent)
@@ -175,10 +177,10 @@ void SvgGallery::initUI()
     mainLayout->addWidget(m_infoLabel);
     
     // Scroll area for gallery
-    QScrollArea *scrollArea = new QScrollArea(this);
-    scrollArea->setWidgetResizable(true);
-    scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-    scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    m_scrollArea = new QScrollArea(this);
+    m_scrollArea->setWidgetResizable(true);
+    m_scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    m_scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     
     // Gallery widget
     m_galleryWidget = new QWidget();
@@ -186,8 +188,8 @@ void SvgGallery::initUI()
     m_galleryLayout->setSpacing(15);
     m_galleryLayout->setAlignment(Qt::AlignTop | Qt::AlignLeft);
     
-    scrollArea->setWidget(m_galleryWidget);
-    mainLayout->addWidget(scrollArea);
+    m_scrollArea->setWidget(m_galleryWidget);
+    mainLayout->addWidget(m_scrollArea);
     
     // Set initial background
     updateBackgroundColor();
@@ -302,6 +304,27 @@ void SvgGallery::loadSvgs()
 
 void SvgGallery::updateIconSizes()
 {
+    if (m_svgPairs.isEmpty())
+        return;
+    
+    // Calculate the relative scroll position before resize
+    QScrollBar *vScrollBar = m_scrollArea->verticalScrollBar();
+    double scrollRatio = 0.0;
+    if (vScrollBar->maximum() > 0) {
+        scrollRatio = static_cast<double>(vScrollBar->value()) / vScrollBar->maximum();
+    }
+    
+    // Update icon sizes
     for (SvgPair *widget : m_svgPairs)
         widget->setIconSize(m_iconSize);
+    
+    // Force layout update
+    m_galleryWidget->updateGeometry();
+    QCoreApplication::processEvents();
+    
+    // Restore the relative scroll position
+    if (vScrollBar->maximum() > 0) {
+        int newValue = static_cast<int>(scrollRatio * vScrollBar->maximum());
+        vScrollBar->setValue(newValue);
+    }
 }

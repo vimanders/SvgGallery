@@ -1,6 +1,8 @@
 #ifndef SVGGALLERY_H
 #define SVGGALLERY_H
 
+#include "SvgPair.h"
+
 #include <QMainWindow>
 #include <QLineEdit>
 #include <QLabel>
@@ -9,9 +11,9 @@
 #include <QColor>
 #include <QList>
 #include <QSlider>
-#include "SvgPair.h"
+#include <QScrollArea>
 
-// A Simeple Gallery of SVGs in a given folder
+// A Simple Gallery of SVGs in a given folder
 class SvgGallery : public QMainWindow
 {
     Q_OBJECT
@@ -38,6 +40,7 @@ private:
     QLabel *m_infoLabel;
     QLabel *m_sizeLabel;
     QSlider *m_sizeSlider;
+    QScrollArea *m_scrollArea;
     QWidget *m_galleryWidget;
     QGridLayout *m_galleryLayout;
     QList<SvgPair*> m_svgPairs;
