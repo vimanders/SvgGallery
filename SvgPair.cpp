@@ -37,18 +37,12 @@ struct SvgIconEngine : QIconEngine
         if (!renderer.isValid())
             return {};
 
-        // QPixmap has a loadFromData() method which uses the
-        // SVG size as pixelsize. I'd rather suggest to use the
-        // QSvgRenderer instead to have control over the pixel
-        // size of the rendered SVG.
         QPixmap p(size);
         p.fill(Qt::transparent);
         QPainter painter(&p);
         renderer.setAspectRatioMode(Qt::KeepAspectRatio);
         renderer.render(&painter);
 
-        // Pixmap -> Icon -> Pixmap to honor mode and state as
-        // color transformations are performed on pixel level
         QIcon icon(p);
         return icon.pixmap(size, mode, state);
     }
@@ -70,79 +64,64 @@ struct SvgIconEngine : QIconEngine
 
 SvgPair::SvgPair(
     const QString &svgPath,
+    const QStringList &pngPaths,
     int iconSize,
     bool customEngine,
     QWidget *parent)
 : QWidget(parent)
 , m_svgPath(svgPath)
 , m_iconSize(iconSize)
+, m_customEngine(customEngine)
 {
     // Main layout
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(10, 10, 10, 10);
     mainLayout->setSpacing(5);
     
-    // Horizontal layout for the two buttons
-    QHBoxLayout *buttonsLayout = new QHBoxLayout();
-    buttonsLayout->setSpacing(10);
-    
-    // Load the SVG via file (scales correctly in IDE)
-    // or custom engine (scales always correctly)
-    QIcon icon = customEngine ? QIcon(new SvgIconEngine(svgPath)) : QIcon(svgPath);
-
-    // Disabled button
-    m_disabledButton = new QToolButton(this);
-    m_disabledButton->setIcon(icon);
-    m_disabledButton->setIconSize(QSize(m_iconSize, m_iconSize));
-    m_disabledButton->setAutoRaise(true);
-    m_disabledButton->setEnabled(false);
-    m_disabledButton->setFixedSize(m_iconSize + 4, m_iconSize + 4);
-    
-    // Enabled button
-    m_enabledButton = new QToolButton(this);
-    m_enabledButton->setIcon(icon);
-    m_enabledButton->setIconSize(QSize(m_iconSize, m_iconSize));
-    m_enabledButton->setAutoRaise(true);
-    m_enabledButton->setEnabled(true);
-    m_enabledButton->setFixedSize(m_iconSize + 4, m_iconSize + 4);
-    m_enabledButton->setCheckable(true);
-    
-    // Disabled label
-    m_disabledLabel = new QLabel(tr("Disabled"), this);
-    m_disabledLabel->setAlignment(Qt::AlignCenter);
-    m_disabledLabel->setStyleSheet("color: gray; font-size: 9px;");
-    
-    // Enabled label
-    m_enabledLabel = new QLabel(tr("Enabled"), this);
-    m_enabledLabel->setAlignment(Qt::AlignCenter);
-    m_enabledLabel->setStyleSheet("color: black; font-size: 9px;");
-    
-    // Add disabled button and its label
-    QVBoxLayout *disabledLayout = new QVBoxLayout();
-    disabledLayout->setSpacing(2);
-    disabledLayout->addWidget(m_disabledButton, 0, Qt::AlignCenter);
-    disabledLayout->addWidget(m_disabledLabel);
-    
-    // Add enabled button and its label
-    QVBoxLayout *enabledLayout = new QVBoxLayout();
-    enabledLayout->setSpacing(2);
-    enabledLayout->addWidget(m_enabledButton, 0, Qt::AlignCenter);
-    enabledLayout->addWidget(m_enabledLabel);
-    
-    buttonsLayout->addLayout(disabledLayout);
-    buttonsLayout->addLayout(enabledLayout);
-    
-    mainLayout->addLayout(buttonsLayout);
-    
-    // Filename label
+    // Filename label at the top
     QFileInfo fileInfo(svgPath);
     m_filenameLabel = new QLabel(fileInfo.fileName(), this);
-    m_filenameLabel->setAlignment(Qt::AlignCenter);
-    m_filenameLabel->setWordWrap(true);
-    m_filenameLabel->setMaximumWidth((m_iconSize * 2) + 40);
-    m_filenameLabel->setStyleSheet("font-size: 10px;");
-    
+    m_filenameLabel->setAlignment(Qt::AlignLeft);
+    m_filenameLabel->setStyleSheet("font-weight: bold; font-size: 11px;");
     mainLayout->addWidget(m_filenameLabel);
+    
+    // Horizontal layout for all icons (SVG + PNGs)
+    m_iconsLayout = new QHBoxLayout();
+    m_iconsLayout->setSpacing(15);
+    
+    // Add SVG first
+    createIconPair(svgPath, "SVG", m_iconSize, true);
+    
+    // Add PNGs
+    for (const QString &pngPath : pngPaths) {
+        QFileInfo pngInfo(pngPath);
+        QString baseName = pngInfo.completeBaseName();
+        
+        // Extract size from filename (e.g., "icon_48" -> 48)
+        int pngSize = 32; // default
+        QStringList parts = baseName.split('_');
+        if (parts.size() >= 2) {
+            bool ok;
+            int size = parts.last().toInt(&ok);
+            if (ok && size > 0) {
+                pngSize = size;
+            }
+        }
+        
+        // If no size suffix found, try to detect from image
+        if (pngSize == 32 && baseName.split('_').size() < 2) {
+            QPixmap pixmap(pngPath);
+            if (!pixmap.isNull()) {
+                pngSize = pixmap.width();
+            }
+        }
+        
+        QString label = QString("PNG %1×%1").arg(pngSize);
+        createIconPair(pngPath, label, pngSize, false);
+    }
+    
+    m_iconsLayout->addStretch();
+    mainLayout->addLayout(m_iconsLayout);
     
     // Widget style
     setStyleSheet(
@@ -154,17 +133,110 @@ SvgPair::SvgPair(
     );
 }
 
+void SvgPair::createIconPair(const QString &path, const QString &label, int size, bool isSvg)
+{
+    IconPair pair;
+    pair.originalSize = size;
+    
+    // Load icon
+    QIcon icon;
+    if (isSvg && m_customEngine) {
+        icon = QIcon(new SvgIconEngine(path));
+    } else {
+        icon = QIcon(path);
+    }
+    
+    // Create vertical layout for this icon pair
+    QVBoxLayout *pairLayout = new QVBoxLayout();
+    pairLayout->setSpacing(2);
+    
+    // Type label (SVG, PNG 32x32, etc.)
+    pair.typeLabel = new QLabel(label, this);
+    pair.typeLabel->setAlignment(Qt::AlignCenter);
+    pair.typeLabel->setStyleSheet("font-size: 9px; font-weight: bold; color: #666;");
+    pairLayout->addWidget(pair.typeLabel);
+    
+    // Horizontal layout for disabled/enabled buttons
+    QHBoxLayout *buttonsLayout = new QHBoxLayout();
+    buttonsLayout->setSpacing(5);
+    
+    // Disabled button
+    pair.disabledButton = new QToolButton(this);
+    pair.disabledButton->setIcon(icon);
+    
+    // For PNGs, use original size; for SVGs, use current iconSize
+    int displaySize = isSvg ? m_iconSize : size;
+    pair.disabledButton->setIconSize(QSize(displaySize, displaySize));
+    pair.disabledButton->setAutoRaise(true);
+    pair.disabledButton->setEnabled(false);
+    pair.disabledButton->setFixedSize(displaySize + 4, displaySize + 4);
+    
+    // Enabled button
+    pair.enabledButton = new QToolButton(this);
+    pair.enabledButton->setIcon(icon);
+    pair.enabledButton->setIconSize(QSize(displaySize, displaySize));
+    pair.enabledButton->setAutoRaise(true);
+    pair.enabledButton->setEnabled(true);
+    pair.enabledButton->setCheckable(true);
+    pair.enabledButton->setFixedSize(displaySize + 4, displaySize + 4);
+    
+    // Disabled label
+    pair.disabledLabel = new QLabel(tr("Off"), this);
+    pair.disabledLabel->setAlignment(Qt::AlignCenter);
+    pair.disabledLabel->setStyleSheet("color: gray; font-size: 8px;");
+    
+    // Enabled label
+    pair.enabledLabel = new QLabel(tr("On"), this);
+    pair.enabledLabel->setAlignment(Qt::AlignCenter);
+    pair.enabledLabel->setStyleSheet("color: black; font-size: 8px;");
+    
+    // Add disabled button and label
+    QVBoxLayout *disabledLayout = new QVBoxLayout();
+    disabledLayout->setSpacing(1);
+    disabledLayout->addWidget(pair.disabledButton, 0, Qt::AlignCenter);
+    disabledLayout->addWidget(pair.disabledLabel);
+    
+    // Add enabled button and label
+    QVBoxLayout *enabledLayout = new QVBoxLayout();
+    enabledLayout->setSpacing(1);
+    enabledLayout->addWidget(pair.enabledButton, 0, Qt::AlignCenter);
+    enabledLayout->addWidget(pair.enabledLabel);
+    
+    buttonsLayout->addLayout(disabledLayout);
+    buttonsLayout->addLayout(enabledLayout);
+    
+    pairLayout->addLayout(buttonsLayout);
+    
+    // Add to main icons layout
+    m_iconsLayout->addLayout(pairLayout);
+    
+    // Store the pair
+    m_iconPairs.append(pair);
+}
+
 void SvgPair::setIconSize(int size)
 {
     m_iconSize = size;
     
-    m_disabledButton->setIconSize(QSize(m_iconSize, m_iconSize));
-    m_disabledButton->setFixedSize(m_iconSize + 4, m_iconSize + 4);
-    
-    m_enabledButton->setIconSize(QSize(m_iconSize, m_iconSize));
-    m_enabledButton->setFixedSize(m_iconSize + 4, m_iconSize + 4);
-    
-    m_filenameLabel->setMaximumWidth((m_iconSize * 2) + 40);
+    // Update only SVG icons (first in the list)
+    // PNGs keep their original size
+    for (int i = 0; i < m_iconPairs.size(); ++i) {
+        IconPair &pair = m_iconPairs[i];
+        
+        // First icon is always SVG
+        bool isSvg = (i == 0);
+        
+        if (isSvg) {
+            int displaySize = m_iconSize;
+            
+            pair.disabledButton->setIconSize(QSize(displaySize, displaySize));
+            pair.disabledButton->setFixedSize(displaySize + 4, displaySize + 4);
+            
+            pair.enabledButton->setIconSize(QSize(displaySize, displaySize));
+            pair.enabledButton->setFixedSize(displaySize + 4, displaySize + 4);
+        }
+        // PNGs don't change size - they stay at their original size
+    }
     
     updateGeometry();
 }

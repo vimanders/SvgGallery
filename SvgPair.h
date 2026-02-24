@@ -8,8 +8,10 @@
 #include <QToolButton>
 #include <QSvgWidget>
 #include <QString>
+#include <QStringList>
 
-// Displays an SVG twice, one on a disabled and one on an enabled toolbutton
+// Displays an SVG and its corresponding PNGs (if found)
+// Each image is shown twice: disabled and enabled toolbuttons
 class SvgPair : public QWidget
 {
     Q_OBJECT
@@ -17,6 +19,7 @@ class SvgPair : public QWidget
 public:
     explicit SvgPair(
         const QString &svgPath,
+        const QStringList &pngPaths,
         int iconSize = 32,
         bool customEngine = true,
         QWidget *parent = nullptr);
@@ -25,13 +28,23 @@ public:
     void setIconSize(int size);
 
 private:
+    struct IconPair {
+        QToolButton *disabledButton;
+        QToolButton *enabledButton;
+        QLabel *disabledLabel;
+        QLabel *enabledLabel;
+        QLabel *typeLabel;
+        int originalSize; // For PNGs to know their original size
+    };
+
+    void createIconPair(const QString &path, const QString &label, int size, bool isSvg);
+    
     QString m_svgPath;
     int m_iconSize;
-    QToolButton *m_disabledButton;
-    QToolButton *m_enabledButton;
-    QLabel *m_disabledLabel;
-    QLabel *m_enabledLabel;
+    bool m_customEngine;
+    QHBoxLayout *m_iconsLayout;
     QLabel *m_filenameLabel;
+    QList<IconPair> m_iconPairs;
 };
 
 #endif // SVGPAIR_H

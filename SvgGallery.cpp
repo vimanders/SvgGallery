@@ -9,6 +9,7 @@
 #include <QHBoxLayout>
 #include <QPalette>
 #include <QPushButton>
+#include <QRegularExpression>
 #include <QScrollArea>
 #include <QVBoxLayout>
 
@@ -240,9 +241,9 @@ void SvgGallery::loadSvgs()
     }
     
     // Find all SVG files
-    QStringList filters;
-    filters << "*.svg";
-    QStringList svgFiles = dir.entryList(filters, QDir::Files, QDir::Name);
+    QStringList svgFilters;
+    svgFilters << "*.svg";
+    QStringList svgFiles = dir.entryList(svgFilters, QDir::Files, QDir::Name);
     
     if (svgFiles.isEmpty()) {
         m_infoLabel->setText(tr("No SVG files found in: %1").arg(path));
@@ -250,25 +251,52 @@ void SvgGallery::loadSvgs()
         return;
     }
     
+    // Find all PNG files
+    QStringList pngFilters;
+    pngFilters << "*.png";
+    QStringList allPngFiles = dir.entryList(pngFilters, QDir::Files, QDir::Name);
+    
     // Clear existing gallery
     clearGallery();
     
-    // Add SVG pairs to gallery
-    const int columns = 5; // Number of columns in grid
+    // Process each SVG and find its corresponding PNGs
+    int totalPngsFound = 0;
     
     for (int index = 0; index < svgFiles.size(); ++index) {
-        int row = index / columns;
-        int col = index % columns;
+        QString svgFile = svgFiles[index];
+        QString svgPath = dir.absoluteFilePath(svgFile);
+        QFileInfo svgInfo(svgFile);
+        QString baseName = svgInfo.completeBaseName(); // e.g., "icon" from "icon.svg"
         
-        QString svgPath = dir.absoluteFilePath(svgFiles[index]);
-        SvgPair *svgWidget = new SvgPair(svgPath, m_iconSize, m_customEngine, this);
+        // Find matching PNGs
+        QStringList matchingPngs;
+        QRegularExpression pngPattern(QString("^%1(_\\d+)?\\.png$").arg(QRegularExpression::escape(baseName)));
         
-        m_galleryLayout->addWidget(svgWidget, row, col);
+        for (const QString &pngFile : allPngFiles) {
+            QRegularExpressionMatch match = pngPattern.match(pngFile);
+            if (match.hasMatch()) {
+                matchingPngs.append(dir.absoluteFilePath(pngFile));
+            }
+        }
+        
+        totalPngsFound += matchingPngs.size();
+        
+        // Create widget with SVG and its PNGs (one row per SVG)
+        SvgPair *svgWidget = new SvgPair(svgPath, matchingPngs, m_iconSize, m_customEngine, this);
+        
+        // Add to layout - one widget per row (column 0, spanning all columns)
+        m_galleryLayout->addWidget(svgWidget, index, 0);
         m_svgPairs.append(svgWidget);
     }
     
     m_currentPath = path;
-    m_infoLabel->setText(tr("Loaded %1 SVG file(s) from: %2").arg(svgFiles.size()).arg(path));
+    QString message = tr("Loaded %1 SVG file(s)").arg(svgFiles.size());
+    if (totalPngsFound > 0) {
+        message += tr(" with %1 corresponding PNG(s)").arg(totalPngsFound);
+    }
+    message += tr(" from: %1").arg(path);
+    
+    m_infoLabel->setText(message);
     m_infoLabel->setStyleSheet("padding: 5px; background-color: #2a4a2a; color: #ccffcc; border-radius: 3px;");
 }
 
