@@ -27,38 +27,38 @@ void SvgGallery::initUI()
 {
     setWindowTitle(tr("SVG Gallery Viewer"));
     setMinimumSize(900, 700);
-    
+
     // Central widget
     QWidget *centralWidget = new QWidget(this);
     setCentralWidget(centralWidget);
     QVBoxLayout *mainLayout = new QVBoxLayout(centralWidget);
-    
+
     // Top controls - Path and Load
     QHBoxLayout *controlsLayout = new QHBoxLayout();
-    
+
     // Path input
     m_pathInput = new QLineEdit(this);
     m_pathInput->setPlaceholderText(tr("Enter directory path containing SVG files..."));
     connect(m_pathInput, &QLineEdit::returnPressed, this, &SvgGallery::loadSvgs);
     controlsLayout->addWidget(m_pathInput, 3);
-    
+
     // Browse button
     QPushButton *browseBtn = new QPushButton(tr("Browse..."), this);
     connect(browseBtn, &QPushButton::clicked, this, &SvgGallery::browseDirectory);
     controlsLayout->addWidget(browseBtn);
-    
+
     // Load button
     QPushButton *loadBtn = new QPushButton(tr("Load SVGs"), this);
     connect(loadBtn, &QPushButton::clicked, this, &SvgGallery::loadSvgs);
     controlsLayout->addWidget(loadBtn);
-    
+
     mainLayout->addLayout(controlsLayout);
-    
+
     // Background color presets row
     QHBoxLayout *bgPresetsLayout = new QHBoxLayout();
     QLabel *bgLabel = new QLabel(tr("Background:"), this);
     bgPresetsLayout->addWidget(bgLabel);
-    
+
     QPushButton *bgPresetNative = new QPushButton(tr("Native"), this);
     bgPresetNative->setToolTip("RGB(236, 236, 236)");
     connect(bgPresetNative, &QPushButton::clicked, this, [this] {
@@ -82,7 +82,7 @@ void SvgGallery::initUI()
         updateBackgroundColor();
     });
     bgPresetsLayout->addWidget(bgPresetMedium);
-    
+
     QPushButton *bgPresetDark = new QPushButton(tr("Dark"), this);
     bgPresetDark->setToolTip("RGB(40, 40, 40)");
     connect(bgPresetDark, &QPushButton::clicked, this, [this] {
@@ -90,7 +90,7 @@ void SvgGallery::initUI()
         updateBackgroundColor();
     });
     bgPresetsLayout->addWidget(bgPresetDark);
-    
+
     QPushButton *bgColorBtn = new QPushButton(tr("Custom Color..."), this);
     connect(bgColorBtn, &QPushButton::clicked, this, [this]{
         QColor color = QColorDialog::getColor(
@@ -121,8 +121,8 @@ void SvgGallery::initUI()
 
     bgPresetsLayout->addStretch();
     mainLayout->addLayout(bgPresetsLayout);
-    
-    // Icon size controls row    
+
+    // Icon size controls row
     auto setIconSize = [this](int size) {
         m_iconSize = size;
         m_sizeSlider->setValue(m_iconSize);
@@ -133,19 +133,19 @@ void SvgGallery::initUI()
     QHBoxLayout *sizeControlsLayout = new QHBoxLayout();
     QLabel *sizeControlLabel = new QLabel(tr("Icon Size:"), this);
     sizeControlsLayout->addWidget(sizeControlLabel);
-    
+
     QPushButton *sizePreset1 = new QPushButton("32×32", this);
     connect(sizePreset1, &QPushButton::clicked, this, [setIconSize]{setIconSize(32);});
     sizeControlsLayout->addWidget(sizePreset1);
-    
+
     QPushButton *sizePreset2 = new QPushButton("48×48", this);
     connect(sizePreset2, &QPushButton::clicked, this, [setIconSize]{setIconSize(48);});
     sizeControlsLayout->addWidget(sizePreset2);
-    
+
     QPushButton *sizePreset3 = new QPushButton("64×64", this);
     connect(sizePreset3, &QPushButton::clicked, this, [setIconSize]{setIconSize(64);});
     sizeControlsLayout->addWidget(sizePreset3);
-    
+
     // Size slider
     m_sizeSlider = new QSlider(Qt::Horizontal, this);
     m_sizeSlider->setMinimum(16);
@@ -159,15 +159,15 @@ void SvgGallery::initUI()
         updateIconSizes();
     });
     sizeControlsLayout->addWidget(m_sizeSlider, 2);
-    
+
     // Size label
     m_sizeLabel = new QLabel(tr("%1×%1 px").arg(m_iconSize), this);
     m_sizeLabel->setMinimumWidth(70);
     sizeControlsLayout->addWidget(m_sizeLabel);
-    
+
     sizeControlsLayout->addStretch();
     mainLayout->addLayout(sizeControlsLayout);
-    
+
     // Info label
     m_infoLabel = new QLabel(tr(
         "Load a directory to view SVG files. "
@@ -175,22 +175,22 @@ void SvgGallery::initUI()
         this);
     m_infoLabel->setStyleSheet("padding: 5px; background-color: #3a3a3a; color: #e0e0e0; border-radius: 3px;");
     mainLayout->addWidget(m_infoLabel);
-    
+
     // Scroll area for gallery
     m_scrollArea = new QScrollArea(this);
     m_scrollArea->setWidgetResizable(true);
     m_scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     m_scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-    
+
     // Gallery widget
     m_galleryWidget = new QWidget();
     m_galleryLayout = new QGridLayout(m_galleryWidget);
     m_galleryLayout->setSpacing(15);
     m_galleryLayout->setAlignment(Qt::AlignTop | Qt::AlignLeft);
-    
+
     m_scrollArea->setWidget(m_galleryWidget);
     mainLayout->addWidget(m_scrollArea);
-    
+
     // Set initial background
     updateBackgroundColor();
 }
@@ -200,9 +200,8 @@ void SvgGallery::browseDirectory()
     QString directory = QFileDialog::getExistingDirectory(
         this,
         tr("Select Directory Containing SVG Files"),
-        m_currentPath.isEmpty() ? QDir::homePath() : m_currentPath
-    );
-    
+        m_currentPath.isEmpty() ? QDir::homePath() : m_currentPath);
+
     if (!directory.isEmpty()) {
         m_pathInput->setText(directory);
         loadSvgs();
@@ -227,77 +226,89 @@ void SvgGallery::clearGallery()
 void SvgGallery::loadSvgs()
 {
     QString path = m_pathInput->text().trimmed();
-    
+
     if (path.isEmpty()) {
         m_infoLabel->setText(tr("Please enter a directory path."));
         m_infoLabel->setStyleSheet("padding: 5px; background-color: #4a2020; color: #ffcccc; border-radius: 3px;");
         return;
     }
-    
+
     QDir dir(path);
-    
+
     if (!dir.exists()) {
         m_infoLabel->setText(tr("Error: Directory does not exist: %1").arg(path));
         m_infoLabel->setStyleSheet("padding: 5px; background-color: #4a2020; color: #ffcccc; border-radius: 3px;");
         return;
     }
-    
+
     // Find all SVG files
     QStringList svgFilters;
     svgFilters << "*.svg";
     QStringList svgFiles = dir.entryList(svgFilters, QDir::Files, QDir::Name);
-    
+
     if (svgFiles.isEmpty()) {
         m_infoLabel->setText(tr("No SVG files found in: %1").arg(path));
         m_infoLabel->setStyleSheet("padding: 5px; background-color: #4a4020; color: #ffffcc; border-radius: 3px;");
         return;
     }
-    
+
+    // Show initial progress
+    m_infoLabel->setText(tr("Loading %1 SVG file(s)...").arg(svgFiles.size()));
+    m_infoLabel->setStyleSheet("padding: 5px; background-color: #3a3a3a; color: #e0e0e0; border-radius: 3px;");
+    QCoreApplication::processEvents();
+
     // Find all PNG files
     QStringList pngFilters;
     pngFilters << "*.png";
     QStringList allPngFiles = dir.entryList(pngFilters, QDir::Files, QDir::Name);
-    
+
     // Clear existing gallery
     clearGallery();
-    
+
     // Process each SVG and find its corresponding PNGs
     int totalPngsFound = 0;
-    
+
     for (int index = 0; index < svgFiles.size(); ++index) {
+        // Update progress
+        m_infoLabel->setText(tr("Loading %1 of %2: %3")
+                                 .arg(index + 1)
+                                 .arg(svgFiles.size())
+                                 .arg(svgFiles[index]));
+        QCoreApplication::processEvents();
+
         QString svgFile = svgFiles[index];
         QString svgPath = dir.absoluteFilePath(svgFile);
         QFileInfo svgInfo(svgFile);
         QString baseName = svgInfo.completeBaseName(); // e.g., "icon" from "icon.svg"
-        
+
         // Find matching PNGs
         QStringList matchingPngs;
         QRegularExpression pngPattern(QString("^%1(_\\d+)?\\.png$").arg(QRegularExpression::escape(baseName)));
-        
+
         for (const QString &pngFile : allPngFiles) {
             QRegularExpressionMatch match = pngPattern.match(pngFile);
             if (match.hasMatch()) {
                 matchingPngs.append(dir.absoluteFilePath(pngFile));
             }
         }
-        
+
         totalPngsFound += matchingPngs.size();
-        
+
         // Create widget with SVG and its PNGs (one row per SVG)
         SvgPair *svgWidget = new SvgPair(svgPath, matchingPngs, m_iconSize, m_customEngine, this);
-        
+
         // Add to layout - one widget per row (column 0, spanning all columns)
         m_galleryLayout->addWidget(svgWidget, index, 0);
         m_svgPairs.append(svgWidget);
     }
-    
+
     m_currentPath = path;
     QString message = tr("Loaded %1 SVG file(s)").arg(svgFiles.size());
     if (totalPngsFound > 0) {
         message += tr(" with %1 corresponding PNG(s)").arg(totalPngsFound);
     }
     message += tr(" from: %1").arg(path);
-    
+
     m_infoLabel->setText(message);
     m_infoLabel->setStyleSheet("padding: 5px; background-color: #2a4a2a; color: #ccffcc; border-radius: 3px;");
 }
@@ -306,22 +317,22 @@ void SvgGallery::updateIconSizes()
 {
     if (m_svgPairs.isEmpty())
         return;
-    
+
     // Calculate the relative scroll position before resize
     QScrollBar *vScrollBar = m_scrollArea->verticalScrollBar();
     double scrollRatio = 0.0;
     if (vScrollBar->maximum() > 0) {
         scrollRatio = static_cast<double>(vScrollBar->value()) / vScrollBar->maximum();
     }
-    
+
     // Update icon sizes
     for (SvgPair *widget : m_svgPairs)
         widget->setIconSize(m_iconSize);
-    
+
     // Force layout update
     m_galleryWidget->updateGeometry();
     QCoreApplication::processEvents();
-    
+
     // Restore the relative scroll position
     if (vScrollBar->maximum() > 0) {
         int newValue = static_cast<int>(scrollRatio * vScrollBar->maximum());
