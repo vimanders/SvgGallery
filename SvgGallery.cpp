@@ -11,7 +11,6 @@
 #include <QPalette>
 #include <QPushButton>
 #include <QRegularExpression>
-#include <QScrollArea>
 #include <QScrollBar>
 #include <QVBoxLayout>
 
@@ -54,11 +53,19 @@ void SvgGallery::initUI()
 
     mainLayout->addLayout(controlsLayout);
 
+    // Filter/Search row
+    QHBoxLayout *filterLayout = new QHBoxLayout();
+    m_filterInput = new QLineEdit(this);
+    m_filterInput->setPlaceholderText(tr("Type to filter by filename..."));
+    m_filterInput->setClearButtonEnabled(true);
+    connect(m_filterInput, &QLineEdit::textChanged, this, &SvgGallery::filterGallery);
+    filterLayout->addWidget(m_filterInput, 1);
+
+    filterLayout->addStretch();
+    mainLayout->addLayout(filterLayout);
+
     // Background color presets row
     QHBoxLayout *bgPresetsLayout = new QHBoxLayout();
-    QLabel *bgLabel = new QLabel(tr("Background:"), this);
-    bgPresetsLayout->addWidget(bgLabel);
-
     QPushButton *bgPresetNative = new QPushButton(tr("Native"), this);
     bgPresetNative->setToolTip("RGB(236, 236, 236)");
     connect(bgPresetNative, &QPushButton::clicked, this, [this] {
@@ -106,13 +113,7 @@ void SvgGallery::initUI()
     bgPresetsLayout->addWidget(bgColorBtn);
 
     QCheckBox *ch_customEngine = new QCheckBox(tr("Custom engine"));
-    ch_customEngine->setToolTip(tr(
-        "Toggle and reload if icons scale incorrectly.\n\n"
-        "The Qt documentation states that the icon engine is determined by the\n"
-        "first image format to be added to an icon. SVGs are scaled correctly\n"
-        "when starting this tool from an IDE but apparently does not so when\n"
-        "starting as a standalone application. I guess I'm missing a library?\n"
-        "Anyway, the custom engine should ensure correct scaling."));
+    ch_customEngine->setToolTip(tr("Toggle and reload if icons scale incorrectly."));
     ch_customEngine->setChecked(true);
     connect(ch_customEngine, &QCheckBox::clicked, this, [this](bool checked){
         m_customEngine = checked;
@@ -131,9 +132,6 @@ void SvgGallery::initUI()
     };
 
     QHBoxLayout *sizeControlsLayout = new QHBoxLayout();
-    QLabel *sizeControlLabel = new QLabel(tr("Icon Size:"), this);
-    sizeControlsLayout->addWidget(sizeControlLabel);
-
     QPushButton *sizePreset1 = new QPushButton("32×32", this);
     connect(sizePreset1, &QPushButton::clicked, this, [setIconSize]{setIconSize(32);});
     sizeControlsLayout->addWidget(sizePreset1);
@@ -337,5 +335,39 @@ void SvgGallery::updateIconSizes()
     if (vScrollBar->maximum() > 0) {
         int newValue = static_cast<int>(scrollRatio * vScrollBar->maximum());
         vScrollBar->setValue(newValue);
+    }
+}
+
+void SvgGallery::filterGallery()
+{
+    QString filterText = m_filterInput->text().trimmed();
+
+    int visibleCount = 0;
+
+    // Show/hide widgets based on filter
+    for (SvgPair *widget : m_svgPairs) {
+        QFileInfo fileInfo(widget->svgPath());
+        QString fileName = fileInfo.fileName();
+
+        bool matches = filterText.isEmpty() ||
+                       fileName.contains(filterText, Qt::CaseInsensitive);
+
+        widget->setVisible(matches);
+        if (matches) {
+            visibleCount++;
+        }
+    }
+
+    // Update info label with filter results
+    if (!filterText.isEmpty()) {
+        m_infoLabel->setText(tr("Showing %1 of %2 items matching '%3'")
+                                 .arg(visibleCount)
+                                 .arg(m_svgPairs.size())
+                                 .arg(filterText));
+        m_infoLabel->setStyleSheet("padding: 5px; background-color: #3a4a4a; color: #ccddff; border-radius: 3px;");
+    } else if (!m_svgPairs.isEmpty()) {
+        // Restore original loaded message
+        m_infoLabel->setText(tr("Showing all %1 items").arg(m_svgPairs.size()));
+        m_infoLabel->setStyleSheet("padding: 5px; background-color: #2a4a2a; color: #ccffcc; border-radius: 3px;");
     }
 }
