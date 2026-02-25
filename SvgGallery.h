@@ -30,6 +30,7 @@ private slots:
 private:
     void initUI();
     void updateBackgroundColor();
+    void updateTextColors();
     void clearGallery();
     void updateIconSizes();
     

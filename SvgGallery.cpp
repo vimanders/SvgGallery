@@ -212,6 +212,38 @@ void SvgGallery::updateBackgroundColor()
     palette.setColor(QPalette::Window, m_backgroundColor);
     m_galleryWidget->setAutoFillBackground(true);
     m_galleryWidget->setPalette(palette);
+
+    // Calculate text color based on background brightness
+    updateTextColors();
+}
+
+void SvgGallery::updateTextColors()
+{
+    // Calculate relative luminance using the formula from WCAG
+    // https://www.w3.org/TR/WCAG20/#relativeluminancedef
+    qreal r = m_backgroundColor.redF();
+    qreal g = m_backgroundColor.greenF();
+    qreal b = m_backgroundColor.blueF();
+
+    // Convert to linear RGB
+    auto toLinear = [](qreal c) {
+        return c <= 0.03928 ? c / 12.92 : qPow((c + 0.055) / 1.055, 2.4);
+    };
+
+    qreal rLinear = toLinear(r);
+    qreal gLinear = toLinear(g);
+    qreal bLinear = toLinear(b);
+
+    // Calculate relative luminance
+    qreal luminance = 0.2126 * rLinear + 0.7152 * gLinear + 0.0722 * bLinear;
+
+    // Choose text color based on luminance (threshold: 0.5)
+    QColor textColor = luminance > 0.5 ? Qt::black : Qt::white;
+
+    // Update all SvgPair widgets
+    for (SvgPair *widget : m_svgPairs) {
+        widget->setTextColor(textColor);
+    }
 }
 
 void SvgGallery::clearGallery()
@@ -309,6 +341,9 @@ void SvgGallery::loadSvgs()
 
     m_infoLabel->setText(message);
     m_infoLabel->setStyleSheet("padding: 5px; background-color: #2a4a2a; color: #ccffcc; border-radius: 3px;");
+
+    // Update text colors for all loaded widgets
+    updateTextColors();
 }
 
 void SvgGallery::updateIconSizes()

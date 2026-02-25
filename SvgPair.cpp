@@ -240,3 +240,25 @@ void SvgPair::setIconSize(int size)
     
     updateGeometry();
 }
+
+void SvgPair::setTextColor(const QColor &color)
+{
+    QString colorName = color.name();
+
+    // Update filename label
+    m_filenameLabel->setStyleSheet(QString("font-weight: bold; font-size: 11px; color: %1;").arg(colorName));
+
+    // Update all icon pair labels
+    for (IconPair &pair : m_iconPairs) {
+        // Type label (SVG, PNG 32x32, etc.)
+        pair.typeLabel->setStyleSheet(QString("font-size: 9px; font-weight: bold; color: %1;").arg(colorName));
+
+        // Disabled label - slightly dimmed
+        QColor dimmedColor = color;
+        dimmedColor.setAlpha(150);
+        pair.disabledLabel->setStyleSheet(QString("font-size: 8px; color: %1;").arg(dimmedColor.name(QColor::HexArgb)));
+
+        // Enabled label - full brightness
+        pair.enabledLabel->setStyleSheet(QString("font-size: 8px; color: %1;").arg(colorName));
+    }
+}

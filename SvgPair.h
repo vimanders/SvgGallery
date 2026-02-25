@@ -26,6 +26,7 @@ public:
     
     QString svgPath() const { return m_svgPath; }
     void setIconSize(int size);
+    void setTextColor(const QColor &color);
 
 private:
     struct IconPair {
