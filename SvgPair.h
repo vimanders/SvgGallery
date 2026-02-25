@@ -39,7 +39,9 @@ private:
     };
 
     void createIconPair(const QString &path, const QString &label, int size, bool isSvg);
-    
+    void rebuildLayout();
+    void addIconPairToLayout(int index);
+
     QString m_svgPath;
     int m_iconSize;
     bool m_customEngine;

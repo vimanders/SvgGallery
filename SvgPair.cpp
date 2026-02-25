@@ -1,4 +1,5 @@
 #include "SvgPair.h"
+#include <climits>
 #include <QByteArray>
 #include <QFileInfo>
 #include <QIcon>
@@ -217,28 +218,107 @@ void SvgPair::createIconPair(const QString &path, const QString &label, int size
 void SvgPair::setIconSize(int size)
 {
     m_iconSize = size;
-    
-    // Update only SVG icons (first in the list)
-    // PNGs keep their original size
-    for (int i = 0; i < m_iconPairs.size(); ++i) {
-        IconPair &pair = m_iconPairs[i];
-        
-        // First icon is always SVG
-        bool isSvg = (i == 0);
-        
-        if (isSvg) {
-            int displaySize = m_iconSize;
-            
-            pair.disabledButton->setIconSize(QSize(displaySize, displaySize));
-            pair.disabledButton->setFixedSize(displaySize + 4, displaySize + 4);
-            
-            pair.enabledButton->setIconSize(QSize(displaySize, displaySize));
-            pair.enabledButton->setFixedSize(displaySize + 4, displaySize + 4);
-        }
-        // PNGs don't change size - they stay at their original size
-    }
-    
+
+    // Update SVG icon size
+    IconPair &svgPair = m_iconPairs[0];
+    svgPair.disabledButton->setIconSize(QSize(m_iconSize, m_iconSize));
+    svgPair.disabledButton->setFixedSize(m_iconSize + 4, m_iconSize + 4);
+    svgPair.enabledButton->setIconSize(QSize(m_iconSize, m_iconSize));
+    svgPair.enabledButton->setFixedSize(m_iconSize + 4, m_iconSize + 4);
+
+    // Rebuild the layout with closest PNG next to SVG
+    rebuildLayout();
+
     updateGeometry();
+}
+
+void SvgPair::rebuildLayout()
+{
+    // Store all existing layouts temporarily
+    QList<QVBoxLayout*> pairLayouts;
+
+    // Remove all items from main layout (but don't delete them)
+    while (m_iconsLayout->count() > 0) {
+        QLayoutItem *item = m_iconsLayout->takeAt(0);
+        if (QVBoxLayout *vbox = qobject_cast<QVBoxLayout*>(item->layout())) {
+            pairLayouts.append(vbox);
+        }
+        delete item; // Delete the layout item wrapper, not the layout itself
+    }
+
+    // Clear the list (we'll rebuild from m_iconPairs)
+    pairLayouts.clear();
+
+    // Rebuild order: SVG first, then closest PNG, then rest
+    QList<int> displayOrder;
+    displayOrder.append(0); // SVG always first
+
+    // Find PNG closest to current SVG size
+    if (m_iconPairs.size() > 1) {
+        int closestIndex = 1;
+        int smallestDiff = qAbs(m_iconPairs[1].originalSize - m_iconSize);
+
+        for (int i = 2; i < m_iconPairs.size(); ++i) {
+            int diff = qAbs(m_iconPairs[i].originalSize - m_iconSize);
+            if (diff < smallestDiff) {
+                smallestDiff = diff;
+                closestIndex = i;
+            }
+        }
+
+        // Add closest PNG second
+        displayOrder.append(closestIndex);
+
+        // Add remaining PNGs
+        for (int i = 1; i < m_iconPairs.size(); ++i) {
+            if (i != closestIndex) {
+                displayOrder.append(i);
+            }
+        }
+    }
+
+    // Add all icon pairs in the new order
+    for (int index : displayOrder) {
+        addIconPairToLayout(index);
+    }
+
+    m_iconsLayout->addStretch();
+}
+
+void SvgPair::addIconPairToLayout(int index)
+{
+    IconPair &pair = m_iconPairs[index];
+
+    // Create vertical layout for this icon pair
+    QVBoxLayout *pairLayout = new QVBoxLayout();
+    pairLayout->setSpacing(2);
+
+    // Type label
+    pairLayout->addWidget(pair.typeLabel);
+
+    // Horizontal layout for disabled/enabled buttons
+    QHBoxLayout *buttonsLayout = new QHBoxLayout();
+    buttonsLayout->setSpacing(5);
+
+    // Disabled button and label
+    QVBoxLayout *disabledLayout = new QVBoxLayout();
+    disabledLayout->setSpacing(1);
+    disabledLayout->addWidget(pair.disabledButton, 0, Qt::AlignCenter);
+    disabledLayout->addWidget(pair.disabledLabel);
+
+    // Enabled button and label
+    QVBoxLayout *enabledLayout = new QVBoxLayout();
+    enabledLayout->setSpacing(1);
+    enabledLayout->addWidget(pair.enabledButton, 0, Qt::AlignCenter);
+    enabledLayout->addWidget(pair.enabledLabel);
+
+    buttonsLayout->addLayout(disabledLayout);
+    buttonsLayout->addLayout(enabledLayout);
+
+    pairLayout->addLayout(buttonsLayout);
+
+    // Add to main icons layout
+    m_iconsLayout->addLayout(pairLayout);
 }
 
 void SvgPair::setTextColor(const QColor &color)
