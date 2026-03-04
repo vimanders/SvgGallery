@@ -7,11 +7,13 @@
 #include <QGridLayout>
 #include <QLabel>
 #include <QLineEdit>
-#include <QList>
 #include <QMainWindow>
+#include <QPushButton>
 #include <QScrollArea>
 #include <QSlider>
-#include <QWidget>
+#include <QSplitter>
+
+class ScintillaRelay;
 
 // A Simple Gallery of SVGs in a given folder
 class SvgGallery : public QMainWindow
@@ -19,25 +21,27 @@ class SvgGallery : public QMainWindow
     Q_OBJECT
 
 public:
-    SvgGallery(QWidget *parent = nullptr);
-    ~SvgGallery() = default;
+    explicit SvgGallery(QWidget *parent = nullptr);
 
 private slots:
     void browseDirectory();
     void loadSvgs();
+    void updateIconSizes();
     void filterGallery();
+    void showSvgContent(const QString &svgPath);
+    void saveSvgContent();
+    void closeEditor();
 
 private:
     void initUI();
     void updateBackgroundColor();
     void updateTextColors();
     void clearGallery();
-    void updateIconSizes();
-    
-    QString m_currentPath;
-    QColor m_backgroundColor;
-    int m_iconSize = 32;
-    bool m_customEngine = true;
+    void setupScintilla();
+    void applyXMLHighlighting();
+    void reloadCurrentSvg();
+
+    // UI Components
     QLineEdit *m_pathInput;
     QLineEdit *m_filterInput;
     QLabel *m_infoLabel;
@@ -46,6 +50,23 @@ private:
     QScrollArea *m_scrollArea;
     QWidget *m_galleryWidget;
     QGridLayout *m_galleryLayout;
+    QSplitter *m_splitter;
+
+    // Editor components
+    QWidget *m_editorContainer;
+    QLabel *m_editorTitle;
+    QPushButton *m_saveButton;
+    ScintillaRelay *m_editor;
+
+    // State
+    QString m_currentPath;
+    QString m_currentSvgPath;
+    QColor m_backgroundColor;
+    int m_iconSize = 32;
+    bool m_customEngine = true;
+    bool m_editorVisible;
+
+    // Gallery items
     QList<SvgPair*> m_svgPairs;
 };
 

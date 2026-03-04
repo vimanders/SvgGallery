@@ -27,6 +27,13 @@ public:
     QString svgPath() const { return m_svgPath; }
     void setIconSize(int size);
     void setTextColor(const QColor &color);
+    void reloadSvg();
+
+signals:
+    void doubleClicked(const QString &svgPath);
+
+protected:
+    void mouseDoubleClickEvent(QMouseEvent *event) override;
 
 private:
     struct IconPair {

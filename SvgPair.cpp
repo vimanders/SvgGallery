@@ -1,9 +1,11 @@
 #include "SvgPair.h"
 #include <climits>
 #include <QByteArray>
+#include <QDebug>
 #include <QFileInfo>
 #include <QIcon>
 #include <QIconEngine>
+#include <QMouseEvent>
 #include <QPainter>
 #include <QPixmap>
 #include <QSvgRenderer>
@@ -341,4 +343,36 @@ void SvgPair::setTextColor(const QColor &color)
         // Enabled label - full brightness
         pair.enabledLabel->setStyleSheet(QString("font-size: 8px; color: %1;").arg(colorName));
     }
+}
+
+void SvgPair::reloadSvg()
+{
+    // Force reload by recreating the SVG icon
+    // This is needed because Qt caches SVG rendering
+
+    QIcon newIcon;
+    if (m_customEngine) {
+        newIcon = QIcon(new SvgIconEngine(m_svgPath));
+    } else {
+        newIcon = QIcon(m_svgPath);
+    }
+
+    // Update the first icon pair (SVG)
+    if (!m_iconPairs.isEmpty()) {
+        IconPair &pair = m_iconPairs[0];
+        pair.disabledButton->setIcon(newIcon);
+        pair.enabledButton->setIcon(newIcon);
+
+        // Force repaint
+        pair.disabledButton->update();
+        pair.enabledButton->update();
+    }
+
+    qDebug() << "Reloaded SVG:" << m_svgPath;
+}
+
+void SvgPair::mouseDoubleClickEvent(QMouseEvent *event)
+{
+    Q_UNUSED(event);
+    emit doubleClicked(m_svgPath);
 }
