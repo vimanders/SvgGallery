@@ -457,9 +457,14 @@ void SvgGallery::setupScintilla()
     m_editor->setTabWidth(2);
 
     // Line numbers
+    m_editor->styleSetFore(33, RGB(90, 90, 90));
+    m_editor->styleSetBack(33, RGB(33, 33, 33));
+
+
     m_editor->setMarginTypeN(0, 1);
     m_editor->setMarginWidthN(0, 40);
     m_editor->setMarginWidthN(1, 0);
+    m_editor->setMarginBackN(0, RGB(43, 43, 43));
 
     // Caret and selection
     m_editor->setCaretFore(RGB(255, 255, 255));
