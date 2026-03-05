@@ -69,7 +69,7 @@ private:
     QString m_currentSvgPath;
     QColor m_backgroundColor;
     int m_iconSize = 32;
-    bool m_customEngine = true;
+    bool m_customEngine = false;
     bool m_editorVisible;
 
     // Gallery items

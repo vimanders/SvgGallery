@@ -114,7 +114,7 @@ void SvgGallery::initUI()
 
     QCheckBox *ch_customEngine = new QCheckBox(tr("Custom engine"));
     ch_customEngine->setToolTip(tr("Toggle and reload if icons scale incorrectly."));
-    ch_customEngine->setChecked(true);
+    ch_customEngine->setChecked(false);
     connect(ch_customEngine, &QCheckBox::clicked, this, [this](bool checked){
         m_customEngine = checked;
     });
