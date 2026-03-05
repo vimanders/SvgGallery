@@ -173,6 +173,7 @@ void SvgGallery::initUI()
         "Each icon is shown in both disabled and enabled states."),
         this);
     m_infoLabel->setStyleSheet("padding: 5px; background-color: #3a3a3a; color: #e0e0e0; border-radius: 3px;");
+    m_infoLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
     mainLayout->addWidget(m_infoLabel);
 
     // Scroll area for gallery
@@ -431,8 +432,13 @@ void SvgGallery::filterGallery()
 
 void SvgGallery::setupScintilla()
 {
-    if (!m_editor || !m_editor->isAvailable()) {
-        qDebug() << "setupScintilla: Editor not available";
+    if (!m_editor)
+    {
+        showError("Fatal: no editor at all!");
+        return;
+    }
+    if (!m_editor->isAvailable()) {
+        showError(tr("setupScintilla: %1").arg(m_editor->errorString()));
         return;
     }
 
@@ -468,17 +474,18 @@ void SvgGallery::setupScintilla()
 void SvgGallery::applyXMLHighlighting()
 {
     if (!m_editor || !m_editor->isAvailable()) {
-        qDebug() << "applyXMLHighlighting: Editor not available";
+        showError(tr("applyXMLHighlighting: No Editor: %1").arg(m_editor->errorString()));
         return;
     }
 
     if (!m_editor->isLexillaAvailable()) {
-        qDebug() << "applyXMLHighlighting: Lexilla not available, skipping syntax highlighting";
+        showError(tr(
+            "applyXMLHighlighting: No Lexilla: %1").arg(m_editor->errorString()));
         return;
     }
 
     if (!m_editor->setLexer("xml")) {
-        qDebug() << "Failed to set XML lexer";
+        showError("Failed to set XML lexer");
         return;
     }
 
