@@ -41,6 +41,12 @@ private:
     void applyXMLHighlighting();
     void reloadCurrentSvg();
 
+    // Message display helpers
+    void showSuccess(const QString &message);
+    void showError(const QString &message);
+    void showWarning(const QString &message);
+    void showInfo(const QString &message);
+
     // UI Components
     QLineEdit *m_pathInput;
     QLineEdit *m_filterInput;

@@ -247,6 +247,36 @@ void SvgGallery::browseDirectory()
     }
 }
 
+// ============================================================================
+// Message display helpers
+// ============================================================================
+
+void SvgGallery::showSuccess(const QString &message)
+{
+    m_infoLabel->setText(message);
+    m_infoLabel->setStyleSheet("padding: 5px; background-color: #2a4a2a; color: #ccffcc; border-radius: 3px;");
+}
+
+void SvgGallery::showError(const QString &message)
+{
+    m_infoLabel->setText(message);
+    m_infoLabel->setStyleSheet("padding: 5px; background-color: #4a2020; color: #ffcccc; border-radius: 3px;");
+    qDebug() << "Error:" << message;
+}
+
+void SvgGallery::showWarning(const QString &message)
+{
+    m_infoLabel->setText(message);
+    m_infoLabel->setStyleSheet("padding: 5px; background-color: #4a4020; color: #ffffcc; border-radius: 3px;");
+    qDebug() << "Warning:" << message;
+}
+
+void SvgGallery::showInfo(const QString &message)
+{
+    m_infoLabel->setText(message);
+    m_infoLabel->setStyleSheet("padding: 5px; background-color: #3a3a3a; color: #e0e0e0; border-radius: 3px;");
+}
+
 void SvgGallery::updateBackgroundColor()
 {
     QPalette palette = m_galleryWidget->palette();
@@ -291,53 +321,43 @@ void SvgGallery::loadSvgs()
     QString path = m_pathInput->text().trimmed();
 
     if (path.isEmpty()) {
-        m_infoLabel->setText(tr("Please enter a directory path."));
-        m_infoLabel->setStyleSheet("padding: 5px; background-color: #4a2020; color: #ffcccc; border-radius: 3px;");
+        showError(tr("Please enter a directory path."));
         return;
     }
 
     QDir dir(path);
     if (!dir.exists()) {
-        m_infoLabel->setText(tr("Error: Directory does not exist: %1").arg(path));
-        m_infoLabel->setStyleSheet("padding: 5px; background-color: #4a2020; color: #ffcccc; border-radius: 3px;");
+        showError(tr("Error: Directory does not exist: %1").arg(path));
         return;
     }
 
     QStringList svgFiles = dir.entryList(QStringList("*.svg"), QDir::Files, QDir::Name);
     if (svgFiles.isEmpty()) {
-        m_infoLabel->setText(tr("No SVG files found in: %1").arg(path));
-        m_infoLabel->setStyleSheet("padding: 5px; background-color: #4a4020; color: #ffffcc; border-radius: 3px;");
+        showWarning(tr("No SVG files found in: %1").arg(path));
         return;
     }
 
-    // Show initial progress
-    m_infoLabel->setText(tr("Loading %1 SVG file(s)...").arg(svgFiles.size()));
-    m_infoLabel->setStyleSheet("padding: 5px; background-color: #3a3a3a; color: #e0e0e0; border-radius: 3px;");
+    showInfo(tr("Loading %1 SVG file(s)...").arg(svgFiles.size()));
     QCoreApplication::processEvents();
 
     QStringList allPngFiles = dir.entryList(QStringList("*.png"), QDir::Files, QDir::Name);
     clearGallery();
 
-    // Process each SVG and find its corresponding PNGs
     int totalPngsFound = 0;
-
     for (int index = 0; index < svgFiles.size(); ++index) {
-        // Update progress
-        m_infoLabel->setText(tr("Loading %1 of %2: %3")
-                                 .arg(index + 1)
-                                 .arg(svgFiles.size())
-                                 .arg(svgFiles[index]));
+        showInfo(tr("Loading %1 of %2: %3")
+                     .arg(index + 1)
+                     .arg(svgFiles.size())
+                     .arg(svgFiles[index]));
         QCoreApplication::processEvents();
 
         QString svgFile = svgFiles[index];
         QString svgPath = dir.absoluteFilePath(svgFile);
         QFileInfo svgInfo(svgFile);
-        QString baseName = svgInfo.completeBaseName(); // e.g., "icon" from "icon.svg"
+        QString baseName = svgInfo.completeBaseName();
 
-        // Find matching PNGs
         QStringList matchingPngs;
         QRegularExpression pngPattern(QString("^%1(_\\d+)?\\.png$").arg(QRegularExpression::escape(baseName)));
-
         for (const QString &pngFile : allPngFiles) {
             if (pngPattern.match(pngFile).hasMatch()) {
                 matchingPngs.append(dir.absoluteFilePath(pngFile));
@@ -346,11 +366,8 @@ void SvgGallery::loadSvgs()
 
         totalPngsFound += matchingPngs.size();
 
-        // Create widget with SVG and its PNGs (one row per SVG)
         SvgPair *svgWidget = new SvgPair(svgPath, matchingPngs, m_iconSize, m_customEngine, this);
         connect(svgWidget, &SvgPair::doubleClicked, this, &SvgGallery::showSvgContent);
-
-        // Add to layout - one widget per row (column 0, spanning all columns)
         m_galleryLayout->addWidget(svgWidget, index, 0);
         m_svgPairs.append(svgWidget);
     }
@@ -362,10 +379,7 @@ void SvgGallery::loadSvgs()
     }
     message += tr(" from: %1").arg(path);
 
-    m_infoLabel->setText(message);
-    m_infoLabel->setStyleSheet("padding: 5px; background-color: #2a4a2a; color: #ccffcc; border-radius: 3px;");
-
-    // Update text colors for all loaded widgets
+    showSuccess(message);
     updateTextColors();
 }
 
@@ -398,10 +412,8 @@ void SvgGallery::updateIconSizes()
 void SvgGallery::filterGallery()
 {
     QString filterText = m_filterInput->text().trimmed();
-
     int visibleCount = 0;
 
-    // Show/hide widgets based on filter
     for (SvgPair *widget : m_svgPairs) {
         QFileInfo fileInfo(widget->svgPath());
         bool matches = filterText.isEmpty() || fileInfo.fileName().contains(filterText, Qt::CaseInsensitive);
@@ -409,15 +421,11 @@ void SvgGallery::filterGallery()
         if (matches) visibleCount++;
     }
 
-    // Update info label with filter results
     if (!filterText.isEmpty()) {
-        m_infoLabel->setText(tr("Showing %1 of %2 items matching '%3'")
-                                 .arg(visibleCount).arg(m_svgPairs.size()).arg(filterText));
-        m_infoLabel->setStyleSheet("padding: 5px; background-color: #3a4a4a; color: #ccddff; border-radius: 3px;");
+        showInfo(tr("Showing %1 of %2 items matching '%3'")
+                     .arg(visibleCount).arg(m_svgPairs.size()).arg(filterText));
     } else if (!m_svgPairs.isEmpty()) {
-        // Restore original loaded message
-        m_infoLabel->setText(tr("Showing all %1 items").arg(m_svgPairs.size()));
-        m_infoLabel->setStyleSheet("padding: 5px; background-color: #2a4a2a; color: #ccffcc; border-radius: 3px;");
+        showSuccess(tr("Showing all %1 items").arg(m_svgPairs.size()));
     }
 }
 
@@ -566,17 +574,14 @@ void SvgGallery::saveSvgContent()
 
     QFile file(m_currentSvgPath);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        m_infoLabel->setText(tr("Error: Failed to save %1").arg(QFileInfo(m_currentSvgPath).fileName()));
-        m_infoLabel->setStyleSheet("padding: 5px; background-color: #4a2020; color: #ffcccc; border-radius: 3px;");
+        showError(tr("Error: Failed to save %1").arg(QFileInfo(m_currentSvgPath).fileName()));
         return;
     }
 
     file.write(content);
     file.close();
 
-    m_infoLabel->setText(tr("Saved and reloading: %1").arg(QFileInfo(m_currentSvgPath).fileName()));
-    m_infoLabel->setStyleSheet("padding: 5px; background-color: #2a4a2a; color: #ccffcc; border-radius: 3px;");
-
+    showSuccess(tr("Saved and reloading: %1").arg(QFileInfo(m_currentSvgPath).fileName()));
     reloadCurrentSvg();
 }
 
