@@ -437,8 +437,8 @@ void SvgGallery::setupScintilla()
         showError("Fatal: no editor at all!");
         return;
     }
-    if (!m_editor->isAvailable()) {
-        showError(tr("setupScintilla: %1").arg(m_editor->errorString()));
+    if (!m_editor->is_available()) {
+        showError(tr("setupScintilla: %1").arg(m_editor->error_string()));
         return;
     }
 
@@ -447,60 +447,60 @@ void SvgGallery::setupScintilla()
     };
 
     // Default style
-    m_editor->styleSetFore(32, RGB(169, 183, 198));
-    m_editor->styleSetBack(32, RGB(43, 43, 43));
-    m_editor->styleSetBold(32, false);
-    m_editor->styleSetSize(32, 10);
-    m_editor->styleSetFont(32, "Courier New");
-    m_editor->styleClearAll();
+    m_editor->style_set_fore(32, RGB(169, 183, 198));
+    m_editor->style_set_back(32, RGB(43, 43, 43));
+    m_editor->style_set_bold(32, false);
+    m_editor->style_set_size(32, 10);
+    m_editor->style_set_font(32, "Courier New");
+    m_editor->style_clear_all();
 
-    m_editor->setTabWidth(2);
+    m_editor->set_tab_width(2);
 
     // Line numbers
-    m_editor->styleSetFore(33, RGB(90, 90, 90));
-    m_editor->styleSetBack(33, RGB(33, 33, 33));
+    m_editor->style_set_fore(33, RGB(90, 90, 90));
+    m_editor->style_set_back(33, RGB(33, 33, 33));
 
 
-    m_editor->setMarginTypeN(0, 1);
-    m_editor->setMarginWidthN(0, 40);
-    m_editor->setMarginWidthN(1, 0);
-    m_editor->setMarginBackN(0, RGB(43, 43, 43));
+    m_editor->set_margin_type_n(0, 1);
+    m_editor->set_margin_width_n(0, 40);
+    m_editor->set_margin_width_n(1, 0);
+    m_editor->set_margin_back_n(0, RGB(43, 43, 43));
 
     // Caret and selection
-    m_editor->setCaretFore(RGB(255, 255, 255));
-    m_editor->setSelBack(true, RGB(33, 66, 131));
+    m_editor->set_caret_fore(RGB(255, 255, 255));
+    m_editor->set_sel_back(true, RGB(33, 66, 131));
 
     // Word wrap with indent preservation
-    m_editor->setWrapMode(ScintillaRelay::WrapWord);              // 単語境界でラップ
-    m_editor->setWrapIndentMode(ScintillaRelay::WrapIndentSame);  // 元の行と同じインデント
-    m_editor->setWrapVisualFlags(ScintillaRelay::WrapVisualFlagEnd);  // 行末にインジケータ表示
+    m_editor->set_wrap_mode(ScintillaRelay::WrapWord);              // 単語境界でラップ
+    m_editor->set_wrap_indent_mode(ScintillaRelay::WrapIndentSame);  // 元の行と同じインデント
+    m_editor->set_wrap_visual_flags(ScintillaRelay::WrapVisualFlagEnd);  // 行末にインジケータ表示
 }
 
 void SvgGallery::applyXMLHighlighting()
 {
-    if (!m_editor || !m_editor->isAvailable()) {
-        showError(tr("applyXMLHighlighting: No Editor: %1").arg(m_editor->errorString()));
+    if (!m_editor || !m_editor->is_available()) {
+        showError(tr("applyXMLHighlighting: No Editor: %1").arg(m_editor->error_string()));
         return;
     }
 
-    if (!m_editor->isLexillaAvailable()) {
+    if (!m_editor->is_lexilla_available()) {
         showError(tr(
-            "applyXMLHighlighting: No Lexilla: %1").arg(m_editor->errorString()));
+            "applyXMLHighlighting: No Lexilla: %1").arg(m_editor->error_string()));
         return;
     }
 
-    if (!m_editor->setLexer("xml")) {
+    if (!m_editor->set_lexer("xml")) {
         showError("Failed to set XML lexer");
         return;
     }
 
-    m_editor->setKeyWords(0,
+    m_editor->set_keywords(0,
         "svg path rect circle ellipse line polyline polygon text tspan "
         "g defs use symbol clipPath mask pattern linearGradient radialGradient "
         "stop filter feGaussianBlur feOffset feBlend feColorMatrix "
         "animate animateTransform");
 
-    m_editor->setKeyWords(1,
+    m_editor->set_keywords(1,
         "xmlns width height viewBox x y x1 y1 x2 y2 cx cy r rx ry "
         "d fill stroke stroke-width opacity fill-opacity stroke-opacity "
         "transform translate rotate scale matrix id class style "
@@ -511,24 +511,24 @@ void SvgGallery::applyXMLHighlighting()
         return ((unsigned long)(((unsigned char)(r)|((unsigned short)((unsigned char)(g))<<8))|(((unsigned long)(unsigned char)(b))<<16)));
     };
 
-    m_editor->styleSetFore(0, RGB(169, 183, 198));
-    m_editor->styleSetFore(1, RGB(80, 179, 124));
-    m_editor->styleSetBold(1, true);
-    m_editor->styleSetFore(2, RGB(80, 179, 124));
-    m_editor->styleSetFore(3, RGB(170, 118, 152));
-    m_editor->styleSetFore(4, RGB(170, 118, 152));
-    m_editor->styleSetFore(5, RGB(104, 151, 187));
-    m_editor->styleSetFore(6, RGB(89, 135, 106));
-    m_editor->styleSetFore(7, RGB(89, 135, 106));
-    m_editor->styleSetFore(8, RGB(169, 183, 198));
-    m_editor->styleSetFore(9, RGB(128, 128, 128));
-    m_editor->styleSetItalic(9, true);
-    m_editor->styleSetFore(10, RGB(104, 151, 187));
-    m_editor->styleSetFore(11, RGB(80, 179, 124));
-    m_editor->styleSetBold(11, true);
-    m_editor->styleSetFore(12, RGB(204, 120, 50));
+    m_editor->style_set_fore(0, RGB(169, 183, 198));
+    m_editor->style_set_fore(1, RGB(80, 179, 124));
+    m_editor->style_set_bold(1, true);
+    m_editor->style_set_fore(2, RGB(80, 179, 124));
+    m_editor->style_set_fore(3, RGB(170, 118, 152));
+    m_editor->style_set_fore(4, RGB(170, 118, 152));
+    m_editor->style_set_fore(5, RGB(104, 151, 187));
+    m_editor->style_set_fore(6, RGB(89, 135, 106));
+    m_editor->style_set_fore(7, RGB(89, 135, 106));
+    m_editor->style_set_fore(8, RGB(169, 183, 198));
+    m_editor->style_set_fore(9, RGB(128, 128, 128));
+    m_editor->style_set_italic(9, true);
+    m_editor->style_set_fore(10, RGB(104, 151, 187));
+    m_editor->style_set_fore(11, RGB(80, 179, 124));
+    m_editor->style_set_bold(11, true);
+    m_editor->style_set_fore(12, RGB(204, 120, 50));
 
-    m_editor->colourise(0, -1);
+    m_editor->colorize(0, -1);
     qDebug() << "XML syntax highlighting applied";
 }
 
@@ -559,14 +559,14 @@ void SvgGallery::showSvgContent(const QString &svgPath)
     m_editorTitle->setText(tr("SVG Source: %1").arg(fileInfo.fileName()));
 
     // Always editable
-    m_editor->setReadOnly(false);
-    m_editor->clearAll();
+    m_editor->set_readonly(false);
+    m_editor->clear_all();
 
     QByteArray utf8 = content.toUtf8();
-    m_editor->insertText(0, utf8.constData());
+    m_editor->insert_text(0, utf8.constData());
 
     applyXMLHighlighting();
-    m_editor->gotoPos(0);
+    m_editor->goto_pos(0);
 
     if (!m_editorVisible) {
         m_editorContainer->show();
@@ -582,7 +582,7 @@ void SvgGallery::saveSvgContent()
         return;
     }
 
-    QByteArray content = m_editor->getText();
+    QByteArray content = m_editor->text();
 
     QFile file(m_currentSvgPath);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
