@@ -1,6 +1,7 @@
 #ifndef SVGGALLERY_H
 #define SVGGALLERY_H
 
+#include "AndroidFolder.h"
 #include "SvgPair.h"
 
 #include <QColor>
@@ -74,6 +75,10 @@ private:
 
     // Gallery items
     QList<SvgPair*> m_svgPairs;
+
+#ifdef Q_OS_ANDROID
+    AndroidFolder *m_androidFolder = nullptr;
+#endif
 };
 
 #endif // SVGGALLERY_H

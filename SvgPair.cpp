@@ -1,5 +1,4 @@
 #include "SvgPair.h"
-#include <climits>
 #include <QByteArray>
 #include <QDebug>
 #include <QFileInfo>

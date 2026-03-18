@@ -1,4 +1,5 @@
 #include "SvgGallery.h"
+
 #include "ScintillaRelay.h"
 
 #include <QCheckBox>
@@ -15,6 +16,7 @@
 #include <QRegularExpression>
 #include <QScrollBar>
 #include <QSplitter>
+#include <QStandardPaths>
 #include <QTextStream>
 #include <QVBoxLayout>
 
@@ -25,6 +27,7 @@ SvgGallery::SvgGallery(QWidget *parent)
     , m_editorVisible(false)
 {
     initUI();
+    QCoreApplication::setAttribute(Qt::AA_SynthesizeMouseForUnhandledTouchEvents);
 }
 
 void SvgGallery::initUI()
@@ -237,6 +240,18 @@ void SvgGallery::initUI()
 
 void SvgGallery::browseDirectory()
 {
+#ifdef Q_OS_ANDROID
+    if (!m_androidFolder) {
+        m_androidFolder = new AndroidFolder(this);
+        connect(m_androidFolder, &AndroidFolder::ready, this, [this](bool ok) {
+            if (ok) {
+                m_pathInput->setText(m_androidFolder->treeUri());
+                loadSvgs();
+            }
+        });
+    }
+    m_androidFolder->openDialog();
+#else
     QString directory = QFileDialog::getExistingDirectory(
         this,
         tr("Select Directory Containing SVG Files"),
@@ -246,6 +261,7 @@ void SvgGallery::browseDirectory()
         m_pathInput->setText(directory);
         loadSvgs();
     }
+#endif
 }
 
 // ============================================================================
@@ -319,8 +335,91 @@ void SvgGallery::clearGallery()
 
 void SvgGallery::loadSvgs()
 {
-    QString path = m_pathInput->text().trimmed();
+#ifdef Q_OS_ANDROID
+    if (!m_androidFolder || !m_androidFolder->isReady()) {
+        showError(tr("Please select a directory first."));
+        return;
+    }
 
+    QStringList allFiles = m_androidFolder->fileNames();
+    QStringList svgFiles, allPngFiles;
+    for (const QString &f : allFiles) {
+        if (f.endsWith(QLatin1String(".svg"), Qt::CaseInsensitive))
+            svgFiles.append(f);
+        else if (f.endsWith(QLatin1String(".png"), Qt::CaseInsensitive))
+            allPngFiles.append(f);
+    }
+    svgFiles.sort();
+    allPngFiles.sort();
+
+    if (svgFiles.isEmpty()) {
+        showWarning(tr("No SVG files found."));
+        return;
+    }
+
+    // SAFはファイルパスを持たないので、キャッシュディレクトリに一時書き出し
+    QString cacheDir = QStandardPaths::writableLocation(QStandardPaths::CacheLocation)
+                       + QLatin1String("/svggallery/");
+    QDir().mkpath(cacheDir);
+
+    showInfo(tr("Loading %1 SVG file(s)...").arg(svgFiles.size()));
+    QCoreApplication::processEvents();
+    clearGallery();
+
+    int totalPngsFound = 0;
+    for (int index = 0; index < svgFiles.size(); ++index) {
+        const QString &svgFile = svgFiles[index];
+        showInfo(tr("Loading %1 of %2: %3").arg(index + 1).arg(svgFiles.size()).arg(svgFile));
+        QCoreApplication::processEvents();
+
+        // SVGをキャッシュに書き出す
+        QString svgPath = cacheDir + svgFile;
+        QByteArray svgData = m_androidFolder->read(svgFile);
+        if (!svgData.isEmpty()) {
+            QFile f(svgPath);
+            if (f.open(QIODevice::WriteOnly)) {
+                f.write(svgData);
+                f.close();
+            }
+        }
+
+        // PNGのマッチング
+        QString baseName = QFileInfo(svgFile).completeBaseName();
+        QStringList matchingPngs;
+        QRegularExpression pngPattern(
+            QString("^%1(_\\d+)?\\.png$").arg(QRegularExpression::escape(baseName)));
+        for (const QString &pngFile : allPngFiles) {
+            if (pngPattern.match(pngFile).hasMatch()) {
+                QString pngPath = cacheDir + pngFile;
+                QByteArray pngData = m_androidFolder->read(pngFile);
+                if (!pngData.isEmpty()) {
+                    QFile f(pngPath);
+                    if (f.open(QIODevice::WriteOnly)) {
+                        f.write(pngData);
+                        f.close();
+                    }
+                }
+                matchingPngs.append(pngPath);
+            }
+        }
+        totalPngsFound += matchingPngs.size();
+
+        SvgPair *svgWidget = new SvgPair(svgPath, matchingPngs, m_iconSize, m_customEngine, this);
+        connect(svgWidget, &SvgPair::doubleClicked, this, &SvgGallery::showSvgContent);
+        m_galleryLayout->addWidget(svgWidget, index, 0);
+        m_svgPairs.append(svgWidget);
+    }
+
+    m_currentPath = m_androidFolder->treeUri();
+    QString message = tr("Loaded %1 SVG file(s)").arg(svgFiles.size());
+    if (totalPngsFound > 0)
+        message += tr(" with %1 corresponding PNG(s)").arg(totalPngsFound);
+    showSuccess(message);
+    updateTextColors();
+
+#else
+    // ── デスクトップ（既存コード） ────────────────────────────
+    QString path = m_pathInput->text().trimmed();
     if (path.isEmpty()) {
         showError(tr("Please enter a directory path."));
         return;
@@ -358,13 +457,12 @@ void SvgGallery::loadSvgs()
         QString baseName = svgInfo.completeBaseName();
 
         QStringList matchingPngs;
-        QRegularExpression pngPattern(QString("^%1(_\\d+)?\\.png$").arg(QRegularExpression::escape(baseName)));
+        QRegularExpression pngPattern(
+            QString("^%1(_\\d+)?\\.png$").arg(QRegularExpression::escape(baseName)));
         for (const QString &pngFile : allPngFiles) {
-            if (pngPattern.match(pngFile).hasMatch()) {
+            if (pngPattern.match(pngFile).hasMatch())
                 matchingPngs.append(dir.absoluteFilePath(pngFile));
-            }
         }
-
         totalPngsFound += matchingPngs.size();
 
         SvgPair *svgWidget = new SvgPair(svgPath, matchingPngs, m_iconSize, m_customEngine, this);
@@ -375,13 +473,13 @@ void SvgGallery::loadSvgs()
 
     m_currentPath = path;
     QString message = tr("Loaded %1 SVG file(s)").arg(svgFiles.size());
-    if (totalPngsFound > 0) {
+    if (totalPngsFound > 0)
         message += tr(" with %1 corresponding PNG(s)").arg(totalPngsFound);
-    }
     message += tr(" from: %1").arg(path);
 
     showSuccess(message);
     updateTextColors();
+#endif
 }
 
 void SvgGallery::updateIconSizes()
