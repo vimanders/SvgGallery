@@ -8,3 +8,6 @@ HEADERS += \
     SvgGallery.h \
     SvgPair.h \
     AndroidFolder.h \
+
+OTHER_FILES += \
+    AndroidFolder.md \
