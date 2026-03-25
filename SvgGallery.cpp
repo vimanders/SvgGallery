@@ -679,17 +679,27 @@ void SvgGallery::saveSvgContent()
         qDebug() << "No SVG to save";
         return;
     }
-
     QByteArray content = m_editor->text();
 
+    // キャッシュに書き込む（既存コード）
     QFile file(m_currentSvgPath);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
         showError(tr("Error: Failed to save %1").arg(QFileInfo(m_currentSvgPath).fileName()));
         return;
     }
-
     file.write(content);
     file.close();
+
+#ifdef Q_OS_ANDROID
+    // SAFの元フォルダにも書き戻す
+    if (m_androidFolder && m_androidFolder->isReady()) {
+        const QString fileName = QFileInfo(m_currentSvgPath).fileName();
+        if (!m_androidFolder->write(fileName, content)) {
+            showError(tr("Error: Failed to save to original folder: %1").arg(fileName));
+            return;
+        }
+    }
+#endif
 
     showSuccess(tr("Saved and reloading: %1").arg(QFileInfo(m_currentSvgPath).fileName()));
     reloadCurrentSvg();

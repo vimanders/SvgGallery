@@ -13,9 +13,11 @@
 #include <QString>
 #include <QByteArray>
 #include <QStringList>
+#include <QHash>
 
 #ifdef Q_OS_ANDROID
 #  include <QJniObject>
+// Qt 6.2～6.10+: .pro に QT += core-private が必要
 #  include <QtCore/private/qandroidextras_p.h>
 #endif
 
@@ -76,6 +78,13 @@ private:
     static constexpr const char *kSettingsKey = "AndroidFolder/treeUri";
 
     QString m_treeUri;
+
+    /// fileNames() 時に fileName→documentId をキャッシュする。
+    /// write()/remove()/exists() で再クエリ不要になる。
+    mutable QHash<QString, QString> m_docIdCache;
+
+    /// キャッシュを無効化する（フォルダ変更時）。
+    void invalidateCache();
 
     /// 起動時に QSettings から URI を復元する（コンストラクタから呼ぶ）。
     void restoreUri();

@@ -166,7 +166,13 @@ bool AndroidFolder::setUri(const QString &treeUri)
 void AndroidFolder::reset()
 {
     m_treeUri.clear();
+    m_docIdCache.clear();
     QSettings().remove(QLatin1String(kSettingsKey));
+}
+
+void AndroidFolder::invalidateCache()
+{
+    m_docIdCache.clear();
 }
 
 // ── fileNames ──────────────────────────────────────────────────
@@ -194,13 +200,15 @@ QStringList AndroidFolder::fileNames() const
         "(Landroid/net/Uri;Ljava/lang/String;)Landroid/net/Uri;",
         treeUriObj.object(), rootDocId.object());
 
-    // Projection: [_display_name, mime_type]
+    // Projection: [_display_name, mime_type, document_id]
     jclass strCls = env->FindClass("java/lang/String");
-    jobjectArray proj = env->NewObjectArray(2, strCls, nullptr);
+    jobjectArray proj = env->NewObjectArray(3, strCls, nullptr);
     env->SetObjectArrayElement(
         proj, 0, QJniObject::fromString(QLatin1String(DocCol::DisplayName)).object());
     env->SetObjectArrayElement(
         proj, 1, QJniObject::fromString(QLatin1String(DocCol::MimeType)).object());
+    env->SetObjectArrayElement(
+        proj, 2, QJniObject::fromString(QLatin1String(DocCol::DocumentId)).object());
 
     QJniObject cursor = contentResolver().callObjectMethod(
         "query",
@@ -216,6 +224,7 @@ QStringList AndroidFolder::fileNames() const
 
     QStringList result;
     if (cursor.isValid()) {
+        m_docIdCache.clear();   // ← クエリのたびにキャッシュ更新
         while (cursor.callMethod<jboolean>("moveToNext")) {
             // col 1 = mime_type
             const QString mime =
@@ -223,14 +232,22 @@ QStringList AndroidFolder::fileNames() const
                                         static_cast<jint>(1)).toString();
             // ディレクトリは除外（フラットフォルダの仕様）
             if (mime != QLatin1String(DocCol::DirMimeType)) {
-                // col 0 = _display_name
-                result << cursor.callObjectMethod(
+                // col 0 = _display_name, col 2 = document_id
+                const QString name = cursor.callObjectMethod(
                     "getString", "(I)Ljava/lang/String;",
                     static_cast<jint>(0)).toString();
+                const QString docId = cursor.callObjectMethod(
+                    "getString", "(I)Ljava/lang/String;",
+                    static_cast<jint>(2)).toString();
+                result << name;
+                m_docIdCache.insert(name, docId);   // ← キャッシュに追加
+                qDebug() << "[AndroidFolder::fileNames]" << name << "->" << docId;
             }
         }
         cursor.callMethod<void>("close");
     }
+    qDebug() << "[AndroidFolder::fileNames] treeUri:" << m_treeUri;
+    qDebug() << "[AndroidFolder::fileNames] total files:" << result.size();
     return result;
 
 #else
@@ -247,8 +264,10 @@ QByteArray AndroidFolder::read(const QString &fileName) const
         return {};
 
     const QString docId = findDocumentId(fileName);
-    if (docId.isEmpty())
+    if (docId.isEmpty()) {
+        qDebug() << "[AndroidFolder::read] docId NOT FOUND for:" << fileName;
         return {};
+    }
 
     // documentId から完全な URI を構築
     QJniObject docUri = QJniObject::callStaticObjectMethod(
@@ -257,6 +276,10 @@ QByteArray AndroidFolder::read(const QString &fileName) const
         "(Landroid/net/Uri;Ljava/lang/String;)Landroid/net/Uri;",
         parseUri(m_treeUri).object(),
         QJniObject::fromString(docId).object());
+
+    qDebug() << "[AndroidFolder::read] fileName:" << fileName;
+    qDebug() << "[AndroidFolder::read] docId:" << docId;
+    qDebug() << "[AndroidFolder::read] docUri:" << docUri.toString();
 
     // InputStream を開く
     QJniObject inputStream = contentResolver().callObjectMethod(
@@ -303,10 +326,22 @@ bool AndroidFolder::write(const QString &fileName, const QByteArray &data)
     if (!isReady())
         return false;
 
+    // キャッシュが空なら fileNames() で先にキャッシュを埋める
+    if (m_docIdCache.isEmpty())
+        fileNames();
+
+    qDebug() << "[AndroidFolder::write] fileName:" << fileName;
+    qDebug() << "[AndroidFolder::write] data size:" << data.size();
+    qDebug() << "[AndroidFolder::write] cache size:" << m_docIdCache.size();
+    qDebug() << "[AndroidFolder::write] cache keys:" << m_docIdCache.keys();
+
     QJniObject cr          = contentResolver();
     QJniObject treeUriObj  = parseUri(m_treeUri);
     const QString mime     = mimeTypeFor(fileName);
     const QString docId    = findDocumentId(fileName);
+
+    qDebug() << "[AndroidFolder::write] found docId:" << docId;
+    qDebug() << "[AndroidFolder::write] path:" << (docId.isEmpty() ? "NEW FILE" : "OVERWRITE");
 
     QJniObject docUri;
 
@@ -334,6 +369,17 @@ bool AndroidFolder::write(const QString &fileName, const QByteArray &data)
             parentDocUri.object(),
             QJniObject::fromString(mime).object(),
             QJniObject::fromString(fileName).object());
+
+        // 新規作成した documentId をキャッシュに追加
+        if (docUri.isValid()) {
+            QJniObject newDocId = QJniObject::callStaticObjectMethod(
+                "android/provider/DocumentsContract",
+                "getDocumentId",
+                "(Landroid/net/Uri;)Ljava/lang/String;",
+                docUri.object());
+            if (newDocId.isValid())
+                m_docIdCache.insert(fileName, newDocId.toString());
+        }
     } else {
         // ── 上書き ────────────────────────────────────────────
         docUri = QJniObject::callStaticObjectMethod(
@@ -355,8 +401,10 @@ bool AndroidFolder::write(const QString &fileName, const QByteArray &data)
         docUri.object(),
         QJniObject::fromString(QStringLiteral("wt")).object());
 
-    if (!outputStream.isValid())
+    if (!outputStream.isValid()) {
+        qDebug() << "[AndroidFolder::write] openOutputStream FAILED";
         return false;
+    }
 
     // QByteArray → jbyteArray → OutputStream.write()
     QJniEnvironment env;
@@ -366,6 +414,7 @@ bool AndroidFolder::write(const QString &fileName, const QByteArray &data)
     outputStream.callMethod<void>("write", "([B)V", jba);
     outputStream.callMethod<void>("close");
     env->DeleteLocalRef(jba);
+    qDebug() << "[AndroidFolder::write] SUCCESS";
     return true;
 
 #else
@@ -471,13 +520,17 @@ void AndroidFolder::onActivityResult(int requestCode,
 
     // パーミッション永続化・QSettings 保存
     setUri(uriStr);
+    invalidateCache();
     emit ready(true);
 }
 
 QString AndroidFolder::findDocumentId(const QString &fileName) const
 {
-    // ファイル名から documentId を線形探索する。
-    // フラットフォルダ（ファイル数が多くない）前提のシンプルな実装。
+    // まずキャッシュを確認（fileNames()呼び出し済みなら即返る）
+    if (m_docIdCache.contains(fileName))
+        return m_docIdCache.value(fileName);
+
+    // キャッシュにない場合はSAFに直接クエリ（フォールバック）
     if (!isReady())
         return {};
 
@@ -524,6 +577,7 @@ QString AndroidFolder::findDocumentId(const QString &fileName) const
                 result = cursor.callObjectMethod(
                     "getString", "(I)Ljava/lang/String;",
                     static_cast<jint>(0)).toString();
+                m_docIdCache.insert(fileName, result);  // ← フォールバック結果もキャッシュ
                 break;
             }
         }
